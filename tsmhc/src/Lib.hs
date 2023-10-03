@@ -32,7 +32,7 @@ construct val = Hashconsed val (hash val)  -- Use hash function from Data.Hashab
 {-|
    Perform a lookup or insert operation on a `HashconsedTable`.
 
-   If `val` is already in the table, return the existing `Hashconsed` value and the unmodified table.
+   If `val` is already in the table, return the existing `Hashconsed` value and the same table.
    If `val` is not in the table, insert it, return the new `Hashconsed` value and the modified table.
 -}
 lookupOrInsert :: (Eq a, Hashable a) => a -> HashconsedTable a -> (Hashconsed a, HashconsedTable a)
@@ -46,8 +46,6 @@ lookupOrInsert val table =
 
 {-|
    Map a function over all `Hashconsed` values in the table.
-
-   Note: The type of the values in the table changes, and they are rehashed.
 -}
 mapTable :: Hashable b => (a -> b) -> HashconsedTable a -> HashconsedTable b
 mapTable f = HashMap.map (construct . f . value)  -- Apply function, then rehash values
@@ -56,11 +54,3 @@ mapTable f = HashMap.map (construct . f . value)  -- Apply function, then rehash
 clearTable :: HashconsedTable a -> HashconsedTable a
 clearTable _ = HashMap.empty
 
-{-|
-   Iterate over all values in the `HashconsedTable`, applying a function to each original value.
-
-   Returns a list of the results.
--}
-iterateTable :: (a -> b) -> HashconsedTable a -> [b]
-iterateTable f table = 
-  map (f . value) (HashMap.elems table)  -- Apply function to original value of each Hashconsed
