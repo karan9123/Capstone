@@ -1,55 +1,66 @@
--- | Lib.hs
 module Lib
-    ( Hashconsed(..)       -- Exporting the Hashconsed data type and its constructors
-    , HashconsTable        -- Exporting the HashconsTable type
-    , newEmptyTable        -- Exporting the newEmptyTable function
-    , clearTable           -- Exporting the clearTable function
-    , lookupOrInsert       -- Exporting the lookupOrInsert function
-    ) where
+  ( Hashconsed(..)
+  , HashconsedTable
+  , newEmptyTable
+  , construct
+  , lookupOrInsert
+  , mapTable
+  , clearTable
+  , iterateTable
+  ) where
 
-import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HashMap
-import System.Mem.StableName
 import Data.Hashable
-import Data.IORef
+import qualified Data.HashMap.Strict as HashMap
 
--- | The 'Hashconsed' data type represents a hash-consed value.
--- It contains the original value, a stable name, and a hash key of the original value.
+-- | Data structure for hash consed values.
 data Hashconsed a = Hashconsed
-    { node :: a            -- Original value
-    , stableName :: Int    -- Stable name of the value
-    , hkey :: Int          -- Hash key of the value
-    } deriving (Show)
+  { value :: a      -- ^ Original value
+  , hashKey :: Int  -- ^ Hash key of the value
+  } deriving (Eq, Show)
 
--- | 'Hashable' instance for 'Hashconsed' to allow it to be used as a key in 'HashMap'.
-instance Hashable (Hashconsed a) where
-    hashWithSalt salt hc = hashWithSalt salt (hkey hc)
+-- | Type alias for a hash consed table, mapping Int hash keys to `Hashconsed a` values.
+type HashconsedTable a = HashMap.HashMap Int (Hashconsed a)
 
--- | 'Eq' instance for 'Hashconsed' to compare based on stable names.
-instance Eq (Hashconsed a) where
-    hc1 == hc2 = stableName hc1 == stableName hc2
+-- | Create a new, empty `HashconsedTable`.
+newEmptyTable :: HashconsedTable a
+newEmptyTable = HashMap.empty
 
--- | The 'HashconsTable' type represents a mutable hash-consing table.
-newtype HashconsTable a = HashconsTable (IORef (HashMap Int (Hashconsed a)))
+-- | Construct a `Hashconsed` value, given an original value.
+construct :: Hashable a => a -> Hashconsed a
+construct val = Hashconsed val (hash val)  -- Use hash function from Data.Hashable
 
--- | 'newEmptyTable' creates a new empty 'HashconsTable'.
-newEmptyTable :: IO (HashconsTable a)
-newEmptyTable = HashconsTable <$> newIORef HashMap.empty
+{-|
+   Perform a lookup or insert operation on a `HashconsedTable`.
 
--- | 'clearTable' clears all entries in the given 'HashconsTable'.
-clearTable :: HashconsTable a -> IO()
-clearTable (HashconsTable tableRef) = modifyIORef' tableRef (const HashMap.empty)
+   If `val` is already in the table, return the existing `Hashconsed` value and the unmodified table.
+   If `val` is not in the table, insert it, return the new `Hashconsed` value and the modified table.
+-}
+lookupOrInsert :: (Eq a, Hashable a) => a -> HashconsedTable a -> (Hashconsed a, HashconsedTable a)
+lookupOrInsert val table =
+  let hashedVal = hash val  -- Compute hash once
+  in case HashMap.lookup hashedVal table of
+    Just hc -> (hc, table)  -- Value found, return existing Hashconsed and original table
+    Nothing -> 
+      let newHc = construct val
+      in (newHc, HashMap.insert hashedVal newHc table)  -- Value not found, insert and return new table
 
--- | 'lookupOrInsert' looks up or inserts a value in the 'HashconsTable'.
--- It returns the hash-consed value from the table.
-lookupOrInsert :: Hashable a => a -> HashconsTable a -> IO (Hashconsed a)
-lookupOrInsert val (HashconsTable tableRef) = do
-    stableName <- makeStableName val
-    let tag = hashStableName stableName
-    hm <- readIORef tableRef
-    case HashMap.lookup tag hm of
-        Just hc -> return hc  -- Return existing hash-consed value if found
-        Nothing -> do         -- Otherwise, insert new hash-consed value and return it
-            let hc = Hashconsed val tag (hash val)
-            writeIORef tableRef (HashMap.insert tag hc hm)
-            return hc
+{-|
+   Map a function over all `Hashconsed` values in the table.
+
+   Note: The type of the values in the table changes, and they are rehashed.
+-}
+mapTable :: Hashable b => (a -> b) -> HashconsedTable a -> HashconsedTable b
+mapTable f = HashMap.map (construct . f . value)  -- Apply function, then rehash values
+
+-- | Return an empty table, effectively clearing the given table.
+clearTable :: HashconsedTable a -> HashconsedTable a
+clearTable _ = HashMap.empty
+
+{-|
+   Iterate over all values in the `HashconsedTable`, applying a function to each original value.
+
+   Returns a list of the results.
+-}
+iterateTable :: (a -> b) -> HashconsedTable a -> [b]
+iterateTable f table = 
+  map (f . value) (HashMap.elems table)  -- Apply function to original value of each Hashconsed
