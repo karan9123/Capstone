@@ -85,8 +85,8 @@ main :: IO ()
 main = do
   print "testing boolFormulaTest"
   let !varP = Var "p"
-  let !varPP = Var "p"
-  let !varQ = Var "q"
+  let varPP = Var "p"
+  let varQ = Var "q"
  
 
   -- printTable varQ
@@ -94,17 +94,18 @@ main = do
   let hc1 = And varP varQ
   let hc2 = And varP varQ
   let hc3 = Or varP varQ
-  print $ hc1 == hc2
-  printTable( getTable varQ)
+  -- print $ hc1 == hc2
+  printTable(getTable varQ)
   print "Table printed"
   -- printTable varP
   performMajorGC
-  performGC
-  _ <- return ()
   print "Starting Table print"
   printTable(getTable varQ)
-  print "Table printed"
-  print $ varP == varPP
+  performGC
+  -- _ <- return ()
+  -- print "Starting Table print"
+  -- printTable(getTable varQ)
+  -- print "Table printed"
   print "testing bool"
 
   -- performMajorGC

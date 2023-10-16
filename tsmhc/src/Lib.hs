@@ -36,13 +36,13 @@ instance Hashable (Hashconsed a) where
     hashWithSalt s (Hashconsed x) = hashWithSalt s x
 
 instance Show a => Show (Hashconsed a) where
-    show (Hashconsed x) = show x
+    show (Hashconsed x) = "HC: " ++ show x
 
 getValue :: Hashconsed a -> a
 getValue (Hashconsed val) = val
                   
 -- Define the table type which holds weak references of hash-consed values
-type HCTable a = MVar (HashMap.HashMap Int (Weak (Hashconsed a)))
+type HCTable a = MVar (HashMap.HashMap a (Weak (Hashconsed a)))
 
 newEmptyHCTable :: IO (HCTable a)
 newEmptyHCTable = newMVar HashMap.empty
@@ -51,23 +51,22 @@ newEmptyHCTable = newMVar HashMap.empty
 hashCons :: Hashable a => a -> HCTable a -> IO (Hashconsed a)
 hashCons val tableRef = do
   table <- readMVar tableRef
-  let hashVal = hash val -- Generating Hash of the value once
   -- Lookup value from table
-  case HashMap.lookup hashVal table of
+  case HashMap.lookup val table of
     Just weakHC -> do
       -- Get HashConsed Value from Weak Pointer
       maybeHashconsed <- deRefWeak weakHC
       case maybeHashconsed of
         Just hConsed -> return hConsed
-        Nothing -> helper val hashVal tableRef 
-    Nothing -> helper val hashVal tableRef
+        Nothing -> helper val tableRef 
+    Nothing -> helper val tableRef
     where
-      helper valu hashVal hcTable = do
+      helper valu hcTable = do
         table <- takeMVar hcTable
-        weakRef <- mkWeakPtr (Hashconsed valu) (Just $ finalizer hashVal hcTable)
-        putMVar hcTable (HashMap.insert hashVal weakRef table)
+        weakRef <- mkWeakPtr (Hashconsed valu) (Just $ finalizer valu hcTable)
+        putMVar hcTable (HashMap.insert valu weakRef table)
         tableRead <- readMVar hcTable
-        case HashMap.lookup hashVal tableRead of
+        case HashMap.lookup valu tableRead of
           Just weakHC -> do
             maybeHashconsed <- deRefWeak weakHC
             case maybeHashconsed of
@@ -76,9 +75,9 @@ hashCons val tableRef = do
           Nothing -> return (Hashconsed valu)
 
 
-finalizer :: Int -> HCTable a -> IO ()
+finalizer :: Hashable a => a -> HCTable a -> IO ()
 finalizer key tableRef = do
-  putStrLn $ "removing value from table with key: " ++ show key
+  putStrLn "removing value from table"
   table <- takeMVar tableRef
   putMVar tableRef (HashMap.delete key table)
 
