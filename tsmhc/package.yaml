@@ -1,10 +1,10 @@
 name:                tsmhc
 version:             0.1.0.0
-github:              "githubuser/tsmhc"
+github:              "karan9123/capstone/tsmhc"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2023 Author name here"
+author:              "Karan Ahluwalia"
+maintainer:          "karan9123@gmail.com"
+copyright:           "2023 Karan Ahluwalia"
 
 extra-source-files:
 - README.md
@@ -23,6 +23,7 @@ dependencies:
 - base >= 4.7 && < 5
 - unordered-containers >= 0.2 && < 0.3
 - hashable >= 1.2 && < 1.5
+- mtl >= 2.2 && < 2.3
 
 ghc-options:
 - -Wall
@@ -34,6 +35,7 @@ ghc-options:
 - -Wmissing-home-modules
 - -Wpartial-fields
 - -Wredundant-constraints
+- -fno-warn-unused-top-binds
 
 library:
   source-dirs: src
@@ -46,6 +48,7 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -fno-warn-unused-top-binds
     dependencies:
     - tsmhc
 
