@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveAnyClass, PatternSynonyms, ViewPatterns, BangPatterns #-}
--- import Lib
-import Lib (HashConsedClass, Hashconsed, hc, getValue, printTable, getTable)
+
+import Lib (HashCons, HC, hashCons, getValue, printTable, getTable)
 import Data.Hashable
 import Data.Bits (xor)
 import System.Mem
@@ -27,16 +27,44 @@ import Control.Exception
 --     print $ hc1 == hc2 -- true
 --     print $ hc1 == hc3 -- false
 
+type BoolFormula1 = HC BoolFormula1'
 
--- type Id = Hashconsed String
+data BoolFormula1' = 
+    Var1' String 
+  | And1' BoolFormula1 BoolFormula1
+  | Or1' BoolFormula1 BoolFormula1
+  deriving (Eq, HashCons, Show)
 
-type BoolFormula = Hashconsed BoolFormula'
+instance Hashable BoolFormula1' where
+  hashWithSalt val (Var1' a) = hashWithSalt val a
+  hashWithSalt val (And1' a1 a2) = (hashWithSalt val a1 `xor` hashWithSalt val a2)`xor` hashWithSalt (val + 103344) a2
+  hashWithSalt val (Or1' a1 a2) = hashWithSalt val a1 `xor` hashWithSalt val a2
+
+pattern Var1 :: String -> BoolFormula1
+pattern Var1 str <- (getValue -> Var1' str)
+  where
+    Var1 str = hashCons (Var1' str)
+                                          
+pattern And1 :: BoolFormula1 -> BoolFormula1 -> BoolFormula1
+pattern And1 x y <- (getValue -> (And1' x y))
+  where
+    And1 x y = hashCons (And1' x y)
+
+pattern Or1 :: BoolFormula1 -> BoolFormula1 -> BoolFormula1
+pattern Or1 x y <- (getValue -> (Or1' x y))
+  where
+    Or1 x y = hashCons (Or1' x y)
+
+
+
+
+type BoolFormula = HC BoolFormula'
 
 data BoolFormula' = 
     Var' String 
   | And' BoolFormula BoolFormula 
   | Or' BoolFormula BoolFormula 
-  deriving (Eq, Show, HashConsedClass)
+  deriving (Eq, HashCons, Show)
 
 instance Hashable BoolFormula' where
   hashWithSalt val (Var' a) = hashWithSalt val a
@@ -46,17 +74,17 @@ instance Hashable BoolFormula' where
 pattern Var :: String -> BoolFormula
 pattern Var str <- (getValue -> Var' str)
   where
-    Var str = hc (Var' str)
+    Var str = hashCons (Var' str)
                                           
 pattern And :: BoolFormula -> BoolFormula -> BoolFormula
 pattern And x y <- (getValue -> (And' x y))
   where
-    And x y = hc (And' x y)
+    And x y = hashCons (And' x y)
 
 pattern Or :: BoolFormula -> BoolFormula -> BoolFormula
 pattern Or x y <- (getValue -> (Or' x y))
   where
-    Or x y = hc (Or' x y)
+    Or x y = hashCons (Or' x y)
 
 -- -- Sample test cases for BoolFormula
 -- boolFormulaTest :: IO ()
@@ -79,49 +107,32 @@ pattern Or x y <- (getValue -> (Or' x y))
 --     print $ hc1 == hc3  -- Should print False
 --     print $ varP == varPP  -- Should print False
 
-
 -- Main Function to run the tests
 main :: IO ()
 main = do
   print "testing boolFormulaTest"
   let !varP = Var "p"
-  let varPP = Var "p"
-  let varQ = Var "q"
+  let !varPP = Var "p"
+  let !varQ = Var "q"
+  let !varP1 = Var1 "p1"
+  let !varPP1 = Var1 "p1"
+  let !varQ1 = Var1 "q1"
  
 
   -- printTable varQ
   -- performMajorGC
-  let hc1 = And varP varQ
-  let hc2 = And varP varQ
-  let hc3 = Or varP varQ
+  -- let hc1 = And varP varQ
+  -- let hc2 = And varP varQ
+  -- let hc3 = Or varP varQ
   -- print $ hc1 == hc2
   printTable(getTable varQ)
   print "Table printed"
-  -- printTable varP
+  printTable(getTable varQ1)
   performMajorGC
   print "Starting Table print"
-  printTable(getTable varQ)
-  performGC
-  -- _ <- return ()
-  -- print "Starting Table print"
   -- printTable(getTable varQ)
-  -- print "Table printed"
+  performGC
   print "testing bool"
 
-  -- performMajorGC
-  -- putStrLn "Garbage collection performed"
-
-  -- putStrLn ""
-  -- putStrLn "Table:"
-  -- _ <- printTable table
-  -- putStrLn ""
-
-  -- _ <- clearTable table
-  -- putStrLn "Clearing Table"
-
-  -- print $ hc1 == hc2
-  -- print hc1
-  -- printTable table
-  -- putStrLn "Table End"
 
 
