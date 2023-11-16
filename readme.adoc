@@ -1,10 +1,5 @@
-= Hash Consing Libraries in Haskell and Rust: A Capstone Project
+= A comparative study of type safe modular hash consing in Haskell and Rust
 
-Karan9123
-
-https://github.com/karan9123/hashcons[HashCons in Haskell]
-
-https://github.com/karan9123/hash_cons[HashCons in Rust]
 
 == Introduction
 
@@ -12,7 +7,7 @@ This capstone project explores the concept and implementation of hash consing, a
 
 Hash consing is particularly useful in functional programming and systems where memory efficiency and data sharing are paramount. It involves identifying and reusing identical data structures, thus reducing memory footprint and potentially improving performance.
 
-== Haskell Implementation
+== link:https://github.com/karan9123/hashcon[Haskell Implementation]
 
 The Haskell portion of the project focuses on developing a pure, single-threaded, and thread-safe version of the hash consing library. Haskell's emphasis on pure functional programming and its advanced type system provide a unique environment to implement hash consing.
 
@@ -20,7 +15,7 @@ The Haskell portion of the project focuses on developing a pure, single-threaded
 2. *Single-Threaded Weak Pointer Version*: This version uses Haskell's weak pointers to manage memory more efficiently, ensuring that unnecessary data is garbage collected.
 3. *Thread-Safe Weak Pointer Version*: Extending the single-threaded version, this implementation focuses on concurrency and thread safety, a critical aspect in modern computing environments.
 
-== Rust Implementation
+== link:https://github.com/karan9123/hash_cons[Rust Implementation]
 
 The Rust portion addresses the same concept in a system programming context, leveraging Rust's unique features like ownership and lifetimes.
 
