@@ -7,7 +7,7 @@ This capstone project explores the concept and implementation of hash consing, a
 
 Hash consing is particularly useful in functional programming and systems where memory efficiency and data sharing are paramount. It involves identifying and reusing identical data structures, thus reducing memory footprint and potentially improving performance.
 
-== link:https://github.com/karan9123/hashcon[Haskell Implementation]
+== link:https://github.com/karan9123/hashcons[Haskell Implementation]
 
 The Haskell portion of the project focuses on developing a pure, single-threaded, and thread-safe version of the hash consing library. Haskell's emphasis on pure functional programming and its advanced type system provide a unique environment to implement hash consing.
 
