@@ -1,0 +1,2 @@
+- [x] Change the reference to table from weak to strong pointer(Rc and Arc)
+- [x] Implement copy trait for HcTable.(Clone is better suited)

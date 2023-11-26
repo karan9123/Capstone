@@ -1,0 +1,3 @@
+- [ ] Define structure
+- [ ] Create Parser
+- [ ] Testing

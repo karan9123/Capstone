@@ -6,4 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hash_cons = "0.1.3"
+hash_cons = { version = "0.1.4", default-features = false, features = ["thread-safe"] }
+rand = "0.8.4"
+stats_alloc = "0.1.10"

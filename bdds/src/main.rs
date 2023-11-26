@@ -1,202 +1,177 @@
+#![allow(warnings)]
+mod ast;
+mod asthc;
+mod bdd;
 mod parser;
 
+use ast::{parse_bool_expr, BoolExpr};
+use asthc::{parse_hc_bool_expr, BoolExprHc};
 use hash_cons::{Hc, HcTable};
-use parser::{parse_boolean_expression, AST};
+use rand::Rng;
+use std::thread;
 
-#[derive(Hash, PartialEq, Eq, Clone)]
-enum TerminalNode {
-    True,
-    False,
-}
+use stats_alloc::{Region, StatsAlloc, INSTRUMENTED_SYSTEM};
+use std::alloc::System;
+use std::fs::File;
+use std::rc::Rc;
+use std::time::Instant;
 
-#[derive(Hash, PartialEq, Eq, Clone)]
-struct NonTerminalNode {
-    var: u32,
-    low: Hc<BddNode>,
-    high: Hc<BddNode>,
-}
-
-#[derive(Hash, PartialEq, Eq, Clone)]
-enum BddNode {
-    Terminal(TerminalNode),
-    NonTerminal(NonTerminalNode),
-}
-
-impl BddNode {
-    fn new_false_terminal() -> BddNode {
-        BddNode::Terminal(TerminalNode::False)
-    }
-
-    fn new_true_terminal() -> BddNode {
-        BddNode::Terminal(TerminalNode::True)
-    }
-
-    fn new_non_terminal(var: u32, low: Hc<BddNode>, high: Hc<BddNode>) -> BddNode {
-        BddNode::NonTerminal(NonTerminalNode { var, low, high })
-    }
-
-    fn _is_terminal(&self) -> bool {
-        match self {
-            BddNode::Terminal(_) => true,
-            BddNode::NonTerminal(_) => false,
-        }
-    }
-}
-use std::fmt;
-
-impl fmt::Debug for BddNode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            BddNode::Terminal(TerminalNode::True) => write!(f, "Terminal: True"),
-            BddNode::Terminal(TerminalNode::False) => write!(f, "Terminal: False"),
-            BddNode::NonTerminal(node) => {
-                write!(f, "var: {}\n", node.var)?;
-                write!(f, "Low: {:?}\n", node.low)?;
-                write!(f, "High: {:?}", node.high)
-            }
-        }
-    }
-}
-
-#[derive(Hash, PartialEq, Eq, Clone)]
-struct Bdd {
-    root: Hc<BddNode>,
-}
-
-impl Bdd {
-    fn new(root: Hc<BddNode>) -> Bdd {
-        Bdd { root: root }
-    }
-}
+use std::io::{self, BufRead, BufReader, Write};
+#[global_allocator]
+static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 
 fn main() {
-    // let table: HcTable<BddNode> = HcTable::new();
+    println!("Thread_safe Auto-Cleanup disabled Hash-Consing Benchmarks\n");
+    let input1 = "out1.txt";
+    println!("1% unique");
+    bench_unique_thread_safe(input1);
+    bench_unique_hc(input1);
+    bench_unique(input1);
 
-    // // to show a or b
-    // let hc_false = table.hashcons(BddNode::new_false_terminal());
+    let input33 = "out33.txt";
+    println!("\n\n33% unique\n");
+    bench_unique_thread_safe(input33);
+    bench_unique_hc(input33);
+    bench_unique(input33);
 
-    // let hc_true = table.hashcons(BddNode::new_true_terminal());
+    let input50 = "out50.txt";
+    println!("\n\n50% unique\n");
+    bench_unique_thread_safe(input50);
+    bench_unique_hc(input50);
+    bench_unique(input50);
 
-    // let hc_node_b = table.hashcons(BddNode::new_non_terminal(
-    //     2,
-    //     hc_false.clone(),
-    //     hc_true.clone(),
-    // ));
-
-    // let hc_node_a = table.hashcons(BddNode::new_non_terminal(
-    //     1,
-    //     hc_node_b.clone(),
-    //     hc_true.clone(),
-    // ));
-
-    // let root_bdd = Bdd::new(hc_node_a);
-
-    // println!("{:?}", root_bdd.root);
-
-    let table: HcTable<parser::AST> = HcTable::new();
-    let expression = "x AND ( y OR NOT z )";
-    match parse_boolean_expression(expression, table) {
-        Ok(ast) => println!("\n\n{:?}\n\n", ast),
-        Err(e) => println!("Error parsing expression: {}", e),
-    }
-}
-fn variable_to_u32(var_name: &String) -> u32 {
-    // Implementation of variable_to_u32 function
-    // ...
-    // Return the corresponding u32 value for the variable name
-    // For example, you can use a match statement to map variable names to u32 values
-    match var_name {
-        x if x == "x" => 0,
-        y if y == "y" => 0,
-        z if z == "z" => 0,
-        _ => panic!("Unknown variable name: {}", var_name),
-    }
-}
-fn ast_to_bdd(ast: parser::AST, table: &mut HcTable<BddNode>, var_order: &[String]) -> BddNode {
-    if var_order.is_empty() {
-        panic!("Variable order is empty");
-    }
-
-    let top_var = &var_order[0];
-    let table_clone = table.clone();
-    let (f_x, f_not_x) = apply_shannons_expansion(&ast, top_var, table_clone);
-
-    let bdd_low = ast_to_bdd(f_not_x, table, &var_order[1..]);
-    let bdd_high = ast_to_bdd(f_x, table, &var_order[1..]);
-
-    let low_node = table.hashcons(bdd_low);
-    let high_node = table.hashcons(bdd_high);
-
-    BddNode::new_non_terminal(
-        variable_to_u32(top_var), // Assuming a function to map variable name to u32
-        low_node,
-        high_node,
-    )
-
-    // Bdd::new(table.hashcons(bdd_node))
+    let input67 = "out67.txt";
+    println!("\n\n67% unique\n");
+    bench_unique_thread_safe(input67);
+    bench_unique_hc(input67);
+    bench_unique(input67);
 }
 
-fn apply_shannons_expansion(
-    ast: &parser::AST,
-    top_var: &str,
-    table: &HcTable<parser::AST>,
-) -> (parser::AST, parser::AST) {
-    match ast {
-        parser::AST::Variable(var) if var == top_var => (parser::AST::True, parser::AST::False),
-        parser::AST::Variable(_) | parser::AST::True | parser::AST::False => {
-            (ast.clone(), ast.clone())
-        }
-        parser::AST::And(left, right) => {
-            let (left_true, left_false) = apply_shannons_expansion(left, top_var, table);
-            let (right_true, right_false) = apply_shannons_expansion(right, top_var, table);
+fn bench_unique(input_file_path: &str) {
+    //For Non-Hash-Consed BoolExpr
+    let mut my_vec: Vec<BoolExpr> = Vec::new();
 
-            let new_left_true = table.hashcons(left_true);
-            let new_right_true = table.hashcons(right_true);
-            let new_left_false = table.hashcons(left_false);
-            let new_right_false = table.hashcons(right_false);
+    // Open the input file in read-only mode
+    let input_file = File::open(input_file_path).unwrap();
+    let reader = BufReader::new(input_file);
 
-            (
-                parser::AST::And(new_left_true, new_right_true),
-                parser::AST::And(new_left_false, new_right_false),
-            )
-        }
-        parser::AST::Or(left, right) => {
-            let (left_true, left_false) = apply_shannons_expansion(left, top_var, table);
-            let (right_true, right_false) = apply_shannons_expansion(right, top_var, table);
+    // initialize region(for memory allocation testing)
+    let reg = Region::new(&GLOBAL);
 
-            let new_left_true = table.hashcons(left_true);
-            let new_right_true = table.hashcons(right_true);
-            let new_left_false = table.hashcons(left_false);
-            let new_right_false = table.hashcons(right_false);
+    // start timer
+    let start = Instant::now();
 
-            (
-                parser::AST::And(new_left_true, new_right_true),
-                parser::AST::And(new_left_false, new_right_false),
-            )
-        }
-        parser::AST::Not(expr) => {
-            let (expr_true, expr_false) = apply_shannons_expansion(expr, top_var, table);
-            let new_expr_true = table.hashcons(expr_true);
-            let new_expr_false = table.hashcons(expr_false);
-
-            (
-                parser::AST::Not(new_expr_true),
-                parser::AST::Not(new_expr_false),
-            )
-        }
-        parser::AST::Xor(left, right) => {
-            let (left_true, left_false) = apply_shannons_expansion(left, top_var, table);
-            let (right_true, right_false) = apply_shannons_expansion(right, top_var, table);
-
-            let new_left_true = table.hashcons(left_true);
-            let new_right_true = table.hashcons(right_true);
-            let new_left_false = table.hashcons(left_false);
-            let new_right_false = table.hashcons(right_false);
-
-            (
-                parser::AST::And(new_left_true, new_right_true),
-                parser::AST::And(new_left_false, new_right_false),
-            )
-        }
+    // non-hashconsed boolexpr
+    for line in reader.lines() {
+        let k = parse_bool_expr(&line.unwrap()).unwrap();
+        my_vec.push(k);
     }
+    //  end timer
+    let duration = start.elapsed();
+
+    // get memory allocation stats
+    let stats = reg.change();
+
+    // print results
+    println!("\nPrinting for Non-Hash-Consed BoolExpr\n");
+    println!("Time taken: {:?}", duration);
+    println!("Bytes allocated: {}", stats.bytes_allocated);
+    println!("Bytes deallocated: {}", stats.bytes_deallocated);
+    println!("Bytes reallocated: {}", stats.bytes_reallocated);
+    println!(
+        "Bytes utilized: {}",
+        stats.bytes_allocated - stats.bytes_deallocated
+    );
+    println!("vector length: {}", my_vec.len());
+}
+
+fn bench_unique_hc(input_file_path: &str) {
+    let mut my_hc_vec: Vec<BoolExprHc> = Vec::new();
+
+    // Open the input file in read-only mode
+    let input_file = File::open(input_file_path).unwrap();
+    let reader = BufReader::new(input_file);
+
+    // iniitalize hashcons table
+    let table: HcTable<BoolExprHc> = HcTable::new();
+
+    // initialize region(for memory allocation testing)
+    let reg = Region::new(&GLOBAL);
+
+    // start timer
+    let start = Instant::now();
+
+    // hashconsed boolexpr
+    for line in reader.lines() {
+        let k = parse_hc_bool_expr(&line.unwrap(), table.clone()).unwrap();
+        my_hc_vec.push(k);
+    }
+
+    // end timer
+    let duration = start.elapsed();
+
+    // get memory allocation stats
+    let stats = reg.change();
+
+    // print results
+    println!("\nPrinting for Hash-Consed BoolExpr\n");
+    println!("Time taken: {:?}", duration);
+    println!("Bytes allocated: {}", stats.bytes_allocated);
+    println!("Bytes deallocated: {}", stats.bytes_deallocated);
+    println!("Bytes reallocated: {}", stats.bytes_reallocated);
+    println!(
+        "Bytes utilized: {}",
+        stats.bytes_allocated - stats.bytes_deallocated
+    );
+    println!("vector length: {}", my_hc_vec.len());
+    println!("table length: {}", table.len());
+}
+
+fn bench_unique_thread_safe(input_file_path: &str) {
+    let mut my_hc_vec: Vec<BoolExprHc> = Vec::new();
+
+    // Open the input file in read-only mode
+    let input_file = File::open(input_file_path).unwrap();
+    let reader = BufReader::new(input_file);
+
+    // iniitalize hashcons table
+    let table_original: HcTable<BoolExprHc> = HcTable::new();
+
+    // initialize region(for memory allocation testing)
+    let reg = Region::new(&GLOBAL);
+
+    // start timer
+    let start = Instant::now();
+
+    let table_clone = table_original.clone();
+    // hashconsed boolexpr
+    for line in reader.lines() {
+        let table = table_clone.clone();
+        let thread_handle_hc =
+            thread::spawn(move || parse_hc_bool_expr(&line.unwrap(), table.clone()).unwrap());
+        let hc_val = thread_handle_hc
+            .join()
+            .expect("Thread should finish and return  `BoolExprHc` without panicking");
+
+        my_hc_vec.push(hc_val);
+    }
+
+    // end timer
+    let duration = start.elapsed();
+
+    // get memory allocation stats
+    let stats = reg.change();
+
+    // print results
+    println!("\nPrinting for multi-threaded inserted Hash-Consed BoolExpr\n");
+    println!("Time taken: {:?}", duration);
+    println!("Bytes allocated: {}", stats.bytes_allocated);
+    println!("Bytes deallocated: {}", stats.bytes_deallocated);
+    println!("Bytes reallocated: {}", stats.bytes_reallocated);
+    println!(
+        "Bytes utilized: {}",
+        stats.bytes_allocated - stats.bytes_deallocated
+    );
+    println!("vector length: {}", my_hc_vec.len());
+    println!("table length: {}", table_original.len());
 }
